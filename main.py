@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 from traceback import format_exc
 
 motd = """                                                      _
@@ -18,21 +19,48 @@ report = lambda s: print(f"\n - {s}")
 
 class DB:
     @staticmethod
-    def validate_int(prompt_string):
+    def validate_int(prompt_string: str):
         entered_string = prompt(prompt_string)
-        while entered_string
-    
+        while not entered_string.isdigit():
+            error("not a number")
+            entered_string = prompt(prompt_string)
+        return int(entered_string)
+
+    @staticmethod
+    def hash_password(password: str):
+        return hashlib.sha512(password.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def validate_password(prompt_string: str):
+        password = prompt(prompt_string)
+        password2 = prompt(f"{prompt_string} again")
+        while password != password2:
+            error("passwords do not match")
+            password = prompt(prompt_string)
+            password2 = prompt(f"{prompt_string} again")
+        return DB.hash_password(password)
+
     def __init__(self, path="./db.json"):
+        self.path = path
         try:
-            self._file = open(path, "r+")
-            self._dict = json.load(self._file)
+            with open(path) as f:
+                self._dict = json.load(f)
         except FileNotFoundError:
-            self._file = open(path, "w+")
-            self._file.write("{}")
+            with open(path, "w") as f:
+                f.write("{}")
             self._dict = {}
+
+    def __contains__(self, key):
+        return key in self._dict
 
     def __iter__(self):
         return iter(self._dict.items())
+
+    def __str__(self):
+        return str(self._dict)
+
+    def __repr__(self):
+        return repr(self._dict)
 
     def set(self, key, value):
         self._dict[key] = value
@@ -43,21 +71,23 @@ class DB:
         return None
 
     def save(self):
-        json.dump(self._dict, self._file)
+        with open(self.path, "w") as f: 
+            json.dump(self._dict, f)
 
-    def close(self):
-        self._file.close()
-
-    def shutdown(self):
-        self.save()
-        self.close()
+    def admin_password(self):
+        password = prompt("enter the admin password")
+        return DB.hash_password(password) == self.get("admin")
 
     # START OF COMMANDS SECTION
 
-''''''
     def config_command(self, args):
-        status = "config"
-        self.set("next-id", validate_int("next receipt number?"))
+        if "admin" not in self:
+            self.set("admin", DB.validate_password("enter an admin password"))
+        elif self.admin_password():
+            self.set("next-id", DB.validate_int("next receipt number?"))
+            self.save()
+        else:
+            error("invalid admin password")
 
     def motd_command(self, args):
         print(motd)
@@ -88,11 +118,11 @@ class DB:
                 commands[args[0]](self, args[1:])
             else: error("no such command")
 
-print(motd)
 db = DB()
+db.motd_command(None)
 
 try:
     while True:
         db.command(prompt("ready"))
 except KeyboardInterrupt:
-    db.shutdown()
+    db.save()
