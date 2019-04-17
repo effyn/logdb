@@ -62,10 +62,10 @@ class DB:
     def __repr__(self):
         return repr(self._dict)
 
-    def set(self, key, value):
+    def __setitem__(self, key, value):
         self._dict[key] = value
 
-    def get(self, key):
+    def __getitem__(self, key):
         if key in self._dict:
             return self._dict[key]
         return None
@@ -82,9 +82,9 @@ class DB:
 
     def config_command(self, args):
         if "admin" not in self:
-            self.set("admin", DB.validate_password("enter an admin password"))
+            self["admin"] = DB.validate_password("enter an admin password")
         elif self.admin_password():
-            self.set("next-id", DB.validate_int("next receipt number?"))
+            self["next-id"] = DB.validate_int("next receipt number?")
             self.save()
         else:
             error("invalid admin password")
@@ -125,4 +125,5 @@ try:
     while True:
         db.command(prompt("ready"))
 except KeyboardInterrupt:
-    db.save()
+    #db.save()
+    exit()
